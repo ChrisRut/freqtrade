@@ -1,0 +1,30 @@
+version: "3"
+services:
+  freqtrade: &freqtrade
+    hostname: freqtrade
+    image: freqtrade_freqtrade:latest
+    build: .
+    volumes:
+      - ~/.freq/config.json:/freqtrade/config.json
+      - ~/.freq/tradesv3.sqlite:/freqtrade/tradesv3.sqlite
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "30"
+  dryrun:
+    <<: *freqtrade
+    volumes:
+      - ~/.freq/dryrun_config.json:/freqtrade/config.json
+      - ~/.freq/tradesv3.dry_run.sqlite:/freqtrade/tradesv3.dry_run.sqlite
+    command: --dry-run-db
+  test:
+    <<: *freqtrade
+    volumes:
+      - ~/.freq/test_config.json:/freqtrade/config.json
+    entrypoint: pytest
+  backtest:
+    <<: *freqtrade
+    volumes:
+      - ~/.freq/test_config.json:/freqtrade/config.json
+    command: backtesting --realistic-simulation

@@ -283,6 +283,16 @@ def build_subcommands(parser: argparse.ArgumentParser) -> None:
 CONF_SCHEMA = {
     'type': 'object',
     'properties': {
+        'analyzer': {
+            'type': 'object',
+            'properties': {
+                "method": {'type': 'string', 'enum': ['cryptoml']},
+                "threshold": {'type': 'number', 'minimum': 0.001},
+                "repeats": {'type': 'integer'},
+                "api_key": {'type': 'string'},
+                "ttl": {'type': 'integer'}
+            }
+        },
         'max_open_trades': {'type': 'integer', 'minimum': 1},
         'ticker_interval': {'type': 'integer', 'enum': [1, 5, 30, 60, 1440]},
         'stake_currency': {'type': 'string', 'enum': ['BTC', 'ETH', 'USDT']},
