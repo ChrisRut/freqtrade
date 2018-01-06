@@ -5,7 +5,7 @@ import logging
 import sys
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any
 
 import arrow
@@ -20,6 +20,10 @@ from freqtrade.misc import (State, get_state, load_config, parse_args,
                             throttle, update_state)
 from freqtrade.persistence import Trade
 from freqtrade.strategy.strategy import Strategy
+
+### START CryptoML Addition
+from freqtrade.cryptoml.cryptoml import CryptoML
+### END CryptoML Addition
 
 logger = logging.getLogger('freqtrade')
 
@@ -52,6 +56,13 @@ def refresh_whitelist(whitelist: List[str]) -> List[str]:
 
     # We need to remove pairs that are unknown
     final_list = [x for x in sanitized_whitelist if x in known_pairs]
+
+    ### START CryptoML
+    if _CONF.get('analyzer', {}).get('method') == "cryptoml":
+        analyzer.whitelist = final_list
+        analyzer.reset_buffer()
+    ### END CryptoML
+
     return final_list
 
 
@@ -316,8 +327,21 @@ def should_sell(trade: Trade, rate: float, date: datetime, buy: bool, sell: bool
     if the threshold is reached and updates the trade record.
     :return: True if trade should be sold, False otherwise
     """
+    # START CryptoML Checks
+    if _CONF.get('analyzer', {}).get('method') == "cryptoml":
+        if trade.pair in get_cryptoml_predictions().keys():
+            logger.debug(f"CryptoML: {trade.pair} is still considered a BUY")
+            return False
+    # END CryptoML Checks
+
     # Check if minimal roi has been reached and no longer in buy conditions (avoiding a fee)
     if min_roi_reached(trade, rate, date):
+        # START CryptoML Checks
+        if _CONF.get('analyzer', {}).get('method') == "cryptoml":
+            if trade.calc_profit(rate=rate) <= 0 and datetime.now() - trade.open_date < timedelta(minutes=60):
+                logger.debug(f"CryptoML: We got a stop-loss signal however {trade.pair} is less than 60m old, let's hold on a bit longer...")
+                return False
+        # END CryptoML Checks
         logger.debug('Executing sell due to ROI ...')
         return True
 
@@ -391,14 +415,21 @@ def create_trade(stake_amount: float, interval: int) -> bool:
     if not whitelist:
         raise DependencyException('No pair in whitelist')
 
-    # Pick pair based on StochRSI buy signals
-    for _pair in whitelist:
-        (buy, sell) = get_signal(_pair, interval)
-        if buy and not sell:
-            pair = _pair
-            break
+    # START CryptoML
+    if _CONF.get('analyzer', {}).get('method') == "cryptoml":
+        pair = get_cryptoml_prediction(whitelist)
+        if pair is None:
+            return False
     else:
-        return False
+        # Pick pair based on StochRSI buy signals
+        for _pair in whitelist:
+            (buy, sell) = get_signal(_pair, interval)
+            if buy and not sell:
+                pair = _pair
+                break
+    # END CryptoML
+
+
 
     # Calculate amount
     buy_limit = get_target_bid(exchange.get_ticker(pair))
@@ -458,6 +489,42 @@ def init(config: dict, db_url: Optional[str] = None) -> None:
         update_state(State[initial_state.upper()])
     else:
         update_state(State.STOPPED)
+
+# START CryptoML Addition
+@cached(TTLCache(maxsize=100, ttl=_CONF.get('analyzer', {}).get('ttl', 30)))
+def get_cryptoml_predictions():
+    predictions = analyzer.get_buy_signal(
+        threshold=_CONF['analyzer']['threshold'],
+        repeats=_CONF['analyzer']['repeats']
+    )
+
+    # Convert list to dict
+    predictions_dict = dict()
+    for prediction in predictions:
+        predictions_dict.update(prediction)
+
+    return predictions_dict
+
+
+def get_cryptoml_prediction(whitelist):
+    """
+    Get prediction from CryptoML
+    :return:
+    """
+    predictions = get_cryptoml_predictions()
+    # get token with highest predicted return - I don't see how this gets the highest predicted return
+    token = None
+    expected_return = 0
+    for market, values in predictions.items():
+        if values['buy_count'] >= _CONF['analyzer']['repeats']:
+            # This doesn't make sense to me
+            if values['running_return'] > expected_return and market in whitelist:
+                token = market
+                expected_return = values['running_return']
+    if token:
+        logger.info(f"CryptoML Says Buy {token}, expected return {expected_return} !")
+    return token
+# End CryptoML Addition
 
 
 @cached(TTLCache(maxsize=1, ttl=1800))
@@ -535,6 +602,12 @@ def main(sysargv=sys.argv[1:]) -> int:
             )
         else:
             logger.info('Dry run is disabled. (--dry_run_db ignored)')
+
+    ### START CryptoML
+    if _CONF.get('analyzer', {}).get('method') == "cryptoml":
+        global analyzer
+        analyzer = CryptoML(whitelist=_CONF['exchange']['pair_whitelist'], api_key=_CONF['analyzer']['api_key'])
+    ### END CryptoML
 
     try:
         init(_CONF)
