@@ -340,8 +340,9 @@ def create_trade(stake_amount: float) -> bool:
         raise DependencyException('No pair in whitelist')
 
     # START CryptoML
+    cryptoml_expected_return = 0
     if _CONF.get('analyzer', {}).get('method') == "cryptoml":
-        pair = get_cryptoml_prediction(whitelist)
+        pair, cryptoml_expected_return = get_cryptoml_prediction(whitelist)
         if pair is None:
             return False
     else:
@@ -368,13 +369,26 @@ def create_trade(stake_amount: float) -> bool:
     )
 
     # Create trade entity and return
-    rpc.send_msg('*{}:* Buying [{}]({}) with limit `{:.8f} ({:.6f} {}, {:.3f} {})` '.format(
-        exchange.get_name().upper(),
-        pair.replace('_', '/'),
-        exchange.get_pair_detail_url(pair),
-        buy_limit, stake_amount, _CONF['stake_currency'],
-        stake_amount_fiat, _CONF['fiat_display_currency']
-    ))
+    ### START CryptoML modification
+    if _CONF.get('analyzer', {}).get('method') == "cryptoml":
+        rpc.send_msg('*{}:* Buying [{}]({}) with limit `{:.8f} ({:.6f} {}, {:.3f} {})` CryptoML Expected return: *{}%* '.format(
+            exchange.get_name().upper(),
+            pair.replace('_', '/'),
+            exchange.get_pair_detail_url(pair),
+            buy_limit, stake_amount, _CONF['stake_currency'],
+            stake_amount_fiat, _CONF['fiat_display_currency'],
+            cryptoml_expected_return
+        ))
+    else:
+        rpc.send_msg('*{}:* Buying [{}]({}) with limit `{:.8f} ({:.6f} {}, {:.3f} {})` '.format(
+            exchange.get_name().upper(),
+            pair.replace('_', '/'),
+            exchange.get_pair_detail_url(pair),
+            buy_limit, stake_amount, _CONF['stake_currency'],
+            stake_amount_fiat, _CONF['fiat_display_currency'],
+        ))
+    ### END CryptoML modification
+
     # Fee is applied twice because we make a LIMIT_BUY and LIMIT_SELL
     trade = Trade(
         pair=pair,
@@ -442,8 +456,9 @@ def get_cryptoml_prediction(whitelist):
                 token = market
                 expected_return = values['running_return']
     if token:
-        logger.info(f"CryptoML Says Buy {token}, expected return {expected_return} !")
-    return token
+        expected_return = round(expected_return * 100, 2)
+        logger.info(f"CryptoML Says Buy {token}, expected return {expected_return}% !")
+    return token, expected_return
 # End CryptoML Addition
 
 
