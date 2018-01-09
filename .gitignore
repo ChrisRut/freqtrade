@@ -87,3 +87,6 @@ target/
 .vscode
 
 hyperopt_trials.pickle
+
+# Docker
+docker-compose.override.yml

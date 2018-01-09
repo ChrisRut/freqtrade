@@ -4,3 +4,5 @@ Dockerfile
 .dockerignore
 config.json*
 *.sqlite
+docker-compose.yml
+docker-compose.override.yml
