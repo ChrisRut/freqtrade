@@ -85,3 +85,6 @@ target/
 .venv
 .idea
 .vscode
+
+# Docker
+docker-compose.override.yml
