@@ -544,7 +544,11 @@ def main(sysargv=sys.argv[1:]) -> None:
     ### START CryptoML
     if _CONF.get('analyzer', {}).get('method') == "cryptoml":
         global analyzer
-        analyzer = CryptoML(whitelist=_CONF['exchange']['pair_whitelist'], api_key=_CONF['analyzer']['api_key'])
+        analyzer = CryptoML(
+            whitelist=_CONF['exchange']['pair_whitelist'],
+            api_key=_CONF['analyzer']['api_key'],
+            api_version=_CONF['analyzer']['api_version'],
+        )
     ### END CryptoML
 
     try:
