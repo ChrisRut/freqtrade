@@ -345,11 +345,12 @@ CONF_SCHEMA = {
         'analyzer': {
             'type': 'object',
             'properties': {
-                "method": {'type': 'string', 'enum': ['cryptoml']},
-                "threshold": {'type': 'number', 'minimum': 0.001},
-                "repeats": {'type': 'integer'},
                 "api_key": {'type': 'string'},
-                "ttl": {'type': 'integer'}
+                "api_version": {'type': 'string', 'enum': ['v1', 'v2']},
+                "method": {'type': 'string', 'enum': ['cryptoml']},
+                "repeats": {'type': 'integer'},
+                "threshold": {'type': 'number', 'minimum': 0.001},
+                "ttl": {'type': 'integer'},
             }
         },
         'max_open_trades': {'type': 'integer', 'minimum': 1},

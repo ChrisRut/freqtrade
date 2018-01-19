@@ -8,17 +8,22 @@ logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(leve
 
 class CryptoML(object):
 
-    def __init__(self, whitelist, api_key):
+    def __init__(self, whitelist, api_key, api_version="v1"):
         self.logger = logging.getLogger(__name__)
         self.logger.level = logging.INFO  # DEBUG is VERY verbose, comment out this line if you need to debug
         self.logger.debug("loading CryptoML()...")
         self.name = 'cryptoml'
-        self.url = "https://cryptoml.azure-api.net/prediction/threshold/"
+        if api_version == "v1":
+            self.url = "https://cryptoml.azure-api.net/prediction/threshold/"
+            self.payload = '{}'
+        else:
+            self.url = "https://cryptoml.azure-api.net/v2/prediction/threshold/"
+            self.payload = None
         self.headers = {
             'content-type': "application/json",
             'ocp-apim-subscription-key': api_key,
         }
-        self.payload = '{}'
+
         self.whitelist = whitelist
         self.predictions = 0
         self.buy_signal_buffer = {}
@@ -36,16 +41,18 @@ class CryptoML(object):
 
     def get_cryptoml_predictions(self, threshold=0.025):
         self.logger.debug(f"get_cryptoml_predictions(threshold={threshold})")
+        args = {
+            'method': 'POST',
+            'url': self.url + str(threshold),
+            'headers': self.headers
+        }
+        if self.payload:
+            args['data'] = self.payload
         self.logger.debug(f"calling {self.url}{threshold} with headers ({self.headers}) and payload ({self.payload})")
-        r = requests.request(
-            method="POST",
-            url=self.url + str(threshold),
-            headers=self.headers,
-            data=self.payload
-        )
+        r = requests.request(**args)
 
         if r.status_code != 200:
-            self.logger.error(f"non-200 response code while calling {self.url}{threshold}\ncode: {r.status_code}\nresponse: {r.text}")
+            self.logger.error(f"non-200 response code while calling {self.url}{threshold}\nargs: {args}\ncode: {r.status_code}\nresponse: {r.text}")
             return {}
         self.logger.debug(f"get_cryptoml_predictions, return: {r.text}")
         return r.json()
