@@ -17,8 +17,8 @@ services:
     <<: *freqtrade
     volumes:
       - ~/.freq/dryrun_config.json:/freqtrade/config.json
-      - ~/.freq/tradesv3.dry_run.sqlite:/freqtrade/tradesv3.dry_run.sqlite
-    command: --dry-run-db
+      - ~/.freq/dryrun_tradesv3.sqlite:/freqtrade/tradesv3.dry_run.sqlite
+    command: --dry-run-db --dynamic-whitelist 150
   test:
     <<: *freqtrade
     volumes:
