@@ -505,7 +505,7 @@ def init(config: dict, db_url: Optional[str] = None) -> None:
         update_state(State.STOPPED)
 
 # START CryptoML Addition
-@cached(TTLCache(maxsize=100, ttl=_CONF.get('analyzer', {}).get('ttl', 30)))
+@cached(TTLCache(maxsize=100, ttl=_CONF.get('analyzer', {}).get('ttl', 180)))
 def get_cryptoml_predictions():
     predictions = analyzer.get_buy_signal(
         threshold=_CONF['analyzer']['threshold'],
