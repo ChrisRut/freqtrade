@@ -8,6 +8,10 @@ from requests.exceptions import ContentDecodingError
 from freqtrade import OperationalException
 from freqtrade.exchange.interface import Exchange
 
+# CRYPTOML START
+from time import sleep
+# CRYPTOML END
+
 logger = logging.getLogger(__name__)
 
 _API: _Bittrex = None
@@ -157,9 +161,14 @@ class Bittrex(Exchange):
 
         return data['result']
 
-    def get_order(self, order_id: str) -> Dict:
+    def get_order(self, order_id: str, counter=1) -> Dict:
         data = _API.get_order(order_id)
         if not data['success']:
+            # CRYPTOML START
+            if data['message'] == 'APIKEY_INVALID' and counter < 30:
+                sleep(10*counter)
+                self.get_order(order_id, counter+1)
+            # CRYPTOML END
             Bittrex._validate_response(data)
             raise OperationalException('{message} params=({order_id})'.format(
                 message=data['message'],
