@@ -85,9 +85,14 @@ class Bittrex(Exchange):
                 amount=amount))
         return data['result']['uuid']
 
-    def get_balance(self, currency: str) -> float:
+    def get_balance(self, currency: str, counter=1) -> float:
         data = _API.get_balance(currency)
         if not data['success']:
+            # CRYPTOML START
+            if data['message'] == 'APIKEY_INVALID' and counter < 30:
+                sleep(10*counter)
+                self.get_balance(currency, counter+1)
+            # CRYPTOML END
             Bittrex._validate_response(data)
             raise OperationalException('{message} params=({currency})'.format(
                 message=data['message'],
